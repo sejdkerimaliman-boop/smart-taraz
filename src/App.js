@@ -10,7 +10,10 @@ import {
   Send,
   Plus,
   CheckCircle2,
-  Clock
+  Clock,
+  Camera,
+  X,
+  Check
 } from 'lucide-react';
 
 const App = () => {
@@ -19,6 +22,7 @@ const App = () => {
   const [showToast, setShowToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Локальді сақтау: Пайдаланушы мәліметтері
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('city_app_user_kz');
     return saved ? JSON.parse(saved) : { 
@@ -31,8 +35,8 @@ const App = () => {
   const [reports, setReports] = useState(() => {
     const saved = localStorage.getItem('city_app_reports_kz');
     return saved ? JSON.parse(saved) : [
-      { id: 1, type: 'Жолдар', title: 'Орталықтағы шұңқыр', status: 'Жұмыста', date: '12.05.2024', priority: 'Жоғары' },
-      { id: 2, type: 'Жарық', title: 'Шам жанбайды', status: 'Орындалды', date: '10.05.2024', priority: 'Орташа' },
+      { id: 1, type: 'Жолдар', title: 'Орталықтағы шұңқыр', status: 'Жұмыста', date: '12.05.2024', priority: 'Жоғары', photo: null },
+      { id: 2, type: 'Жарық', title: 'Шам жанбайды', status: 'Орындалды', date: '10.05.2024', priority: 'Орташа', photo: null },
     ];
   });
 
@@ -48,6 +52,7 @@ const App = () => {
     { id: 2, title: 'Жағалауды қайта құру', votes: 856, voted: true }
   ]);
 
+  // Мәліметтерді синхрондау
   useEffect(() => localStorage.setItem('city_app_user_kz', JSON.stringify(user)), [user]);
   useEffect(() => localStorage.setItem('city_app_reports_kz', JSON.stringify(reports)), [reports]);
   useEffect(() => localStorage.setItem('city_app_chat_kz', JSON.stringify(chatMessages)), [chatMessages]);
@@ -93,6 +98,26 @@ const App = () => {
   // --- Өтінімдерді басқару ---
   const [isReporting, setIsReporting] = useState(false);
   const [newReport, setNewReport] = useState({ title: '', category: 'ТҮКШ', description: '', photo: null });
+  const fileInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setNewReport(prev => ({ ...prev, photo: reader.result }));
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setUser(prev => ({ ...prev, avatar: reader.result }));
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmitReport = (e) => {
     e.preventDefault();
@@ -107,7 +132,7 @@ const App = () => {
         status: 'Жіберілді',
         date: new Date().toLocaleDateString('kk-KZ'),
         priority: 'Орташа',
-        photo: null
+        photo: newReport.photo
       };
       setReports([report, ...reports]);
       setIsSubmitting(false);
@@ -115,6 +140,21 @@ const App = () => {
       setNewReport({ title: '', category: 'ТҮКШ', description: '', photo: null });
       notify('Өтінім сәтті тіркелді!');
     }, 1200);
+  };
+
+  // --- Профильді басқару ---
+  const [editMode, setEditMode] = useState(null);
+  const [tempValue, setTempValue] = useState('');
+
+  const startEditing = (field) => {
+    setEditMode(field);
+    setTempValue(user[field]);
+  };
+
+  const saveProfile = () => {
+    setUser(prev => ({ ...prev, [editMode]: tempValue }));
+    setEditMode(null);
+    notify('Профиль жаңартылды');
   };
 
   const notify = (msg) => {
@@ -161,7 +201,7 @@ const App = () => {
             <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-200">
               <h2 className="text-lg font-bold opacity-90">Қайырлы күн, {user.name}!</h2>
               <p className="text-xs opacity-70 mt-1 leading-relaxed">Қалада бәрі тыныш. Жамбыл облысында ауа райы ашық болады деп күтілуде.</p>
-              <button onClick={() => setActiveTab('reports')} className="mt-4 bg-white text-indigo-600 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md">
+              <button onClick={() => { setActiveTab('reports'); setIsReporting(true); }} className="mt-4 bg-white text-indigo-600 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md">
                 Өтінім қалдыру
               </button>
             </div>
@@ -233,6 +273,27 @@ const App = () => {
                    <option value="Жарық">Жарықтандыру</option>
                    <option value="Тазалық">Қоқыс және Тазалық</option>
                  </select>
+                 
+                 {/* Фото жүктеу батырмасы */}
+                 <div className="flex items-center gap-3 py-1">
+                   <button 
+                     type="button" 
+                     onClick={() => fileInputRef.current.click()}
+                     className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-colors"
+                   >
+                     <Camera size={16} /> Сурет қосу
+                   </button>
+                   <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handlePhotoUpload} />
+                   {newReport.photo && (
+                     <div className="relative w-12 h-12 rounded-lg overflow-hidden border">
+                       <img src={newReport.photo} className="w-full h-full object-cover" alt="preview" />
+                       <button type="button" onClick={() => setNewReport({...newReport, photo: null})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl">
+                         <X size={10} />
+                       </button>
+                     </div>
+                   )}
+                 </div>
+
                  <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white py-3 rounded-xl text-sm font-bold shadow-md">
                    {isSubmitting ? 'Жіберілуде...' : 'Өтінімді жолдау'}
                  </button>
@@ -241,7 +302,7 @@ const App = () => {
 
              <div className="space-y-4">
                 {reports.map(report => (
-                  <div key={report.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+                  <div key={report.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                     <div className="flex justify-between items-start mb-3">
                        <span className={`text-[10px] uppercase font-black px-3 py-1 rounded-full ${getStatusColor(report.status)}`}>
                          {report.status}
@@ -249,7 +310,12 @@ const App = () => {
                        <span className="text-[10px] font-bold text-slate-300">{report.date}</span>
                     </div>
                     <h4 className="font-bold text-slate-800 leading-tight mb-1">{report.title}</h4>
-                    <p className="text-xs font-medium text-slate-500">Сала: {report.type}</p>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Сала: {report.type}</p>
+                    {report.photo && (
+                      <div className="w-full h-40 rounded-2xl overflow-hidden mt-2">
+                        <img src={report.photo} className="w-full h-full object-cover" alt="Report path" />
+                      </div>
+                    )}
                   </div>
                 ))}
              </div>
@@ -327,41 +393,35 @@ const App = () => {
         )}
 
         {activeTab === 'profile' && (
-          <div className="space-y-6 text-center">
-            <h2 className="text-2xl font-black text-left mb-4">Профиль</h2>
-            <div className="w-24 h-24 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 mx-auto shadow-inner">
-              <User size={48} />
-            </div>
-            <div className="mt-4">
-              <h3 className="text-xl font-black text-slate-800">{user.name}</h3>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">{user.city}, Қазақстан</p>
-            </div>
-          </div>
-        )}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-black mb-4">Профиль</h2>
+            
+            <div className="flex flex-col items-center pb-6 border-b">
+              <div className="relative">
+                <div 
+                  onClick={() => avatarInputRef.current.click()}
+                  className="w-24 h-24 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 shadow-inner overflow-hidden cursor-pointer"
+                >
+                  {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" alt="avatar" /> : <User size={48} />}
+                </div>
+                <input type="file" ref={avatarInputRef} hidden accept="image/*" onChange={handleAvatarUpload} />
+                <button onClick={() => avatarInputRef.current.click()} className="absolute -bottom-1 -right-1 bg-indigo-600 text-white p-2 rounded-xl shadow-md">
+                  <Plus size={14} />
+                </button>
+              </div>
 
-      </main>
-
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-100 px-6 py-2 flex justify-between items-center z-40 shadow-lg">
-        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center p-2 ${activeTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <Plus size={20} className={activeTab === 'home' ? 'rotate-45 transition-transform' : ''} />
-          <span className="text-[10px] font-bold mt-1">Басты</span>
-        </button>
-        <button onClick={() => setActiveTab('reports')} className={`flex flex-col items-center p-2 ${activeTab === 'reports' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <AlertTriangle size={20} />
-          <span className="text-[10px] font-bold mt-1">Өтінімдер</span>
-        </button>
-        <button onClick={() => setActiveTab('chat')} className={`flex flex-col items-center p-2 ${activeTab === 'chat' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <Send size={20} />
-          <span className="text-[10px] font-bold mt-1">Чат</span>
-        </button>
-        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 ${activeTab === 'profile' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <User size={20} />
-          <span className="text-[10px] font-bold mt-1">Профиль</span>
-        </button>
-      </nav>
-    </div>
-  );
-};
-
-export default App;
-  
+              {/* Профиль атын өзгерту логикасы */}
+              <div className="mt-4 text-center w-full max-w-xs">
+                {editMode === 'name' ? (
+                  <div className="flex gap-2 items-center justify-center">
+                    <input 
+                      type="text" 
+                      value={tempValue} 
+                      onChange={e => setTempValue(e.target.value)}
+                      className="bg-white border px-3 py-1.5 rounded-xl text-sm font-bold focus:outline-none"
+                    />
+                    <button onClick={saveProfile} className="bg-emerald-500 text-white p-2 rounded-xl"><Check size={16}/></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+    
